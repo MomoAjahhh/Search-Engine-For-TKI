@@ -273,6 +273,48 @@ def jalankan_ui(df, kolom_asli, embeddings_dokumen, tokenizer, model, device):
 
 # PROGRAM UTAMA
 
+def evaluasi_terminal_indobert(df, embeddings_dokumen, tokenizer, model, device):
+    import math
+    queries = [
+        "Penolakan vaksinasi oleh masyarakat dan kelompok antivaksin",
+        "Dampak dan efektivitas vaksinasi terhadap penurunan kasus COVID-19",
+        "Efek samping vaksin dan KIPI (Kejadian Ikutan Pasca Imunisasi)",
+        "Diplomasi vaksin Indonesia di tingkat internasional",
+        "Imunisasi anak dan vaksin campak untuk mencegah penyakit menular"
+    ]
+    ground_truths = [
+        [8, 23, 29, 63, 69],
+        [12, 27, 36, 37, 50],
+        [3, 17, 40, 54, 70],
+        [25, 32, 41, 42, 45],
+        [52, 59, 60, 64, 74]
+    ]
+    
+    print("\n")
+    print("EVALUASI 5 GROUND TRUTH QUERY (INDOBERT)".center(60, " "))
+    total_ap = 0; total_rr = 0; total_ndcg = 0
+    
+    for i, q in enumerate(queries):
+        hasil = cari_indobert(q, embeddings_dokumen, tokenizer, model, device, top_k=5)
+        doc_ids = [df.iloc[idx]['id_dok'] for idx, skor in hasil]
+        gt = ground_truths[i]
+        
+        ap = sum([sum([1 for x in doc_ids[:k] if x in gt])/k for k, did in enumerate(doc_ids, 1) if did in gt]) / len(gt)
+        rr = next((1.0/k for k, did in enumerate(doc_ids, 1) if did in gt), 0.0)
+        dcg = sum([1.0/math.log2(k+1) for k, did in enumerate(doc_ids, 1) if did in gt])
+        ndcg = dcg / 2.9485
+        
+        total_ap += ap; total_rr += rr; total_ndcg += ndcg
+        
+        print(f"\nQ{i+1}: {q}")
+        print(f"Top-5 Dokumen: {doc_ids}")
+        print(f"Metrics -> AP: {ap:.4f} | RR: {rr:.4f} | NDCG: {ndcg:.4f}")
+        
+    print("\n")
+    print(f"RATA-RATA -> MAP: {total_ap/5:.4f} | MRR: {total_rr/5:.4f} | NDCG: {total_ndcg/5:.4f}")
+    print("\n")
+    print("Membuka Antarmuka Pengguna (UI)...")
+
 def main():
     print("\n Load dataset")
     df, kolom_asli = muat_dataset(FILEPATH)
@@ -289,6 +331,9 @@ def main():
     teks_list          = df[kolom_asli].astype(str).tolist()
     embeddings_dokumen = ekstrak_embeddings(teks_list, tokenizer, model, device)
     print(f"      Selesai {embeddings_dokumen.shape}")
+
+    # Jalankan evaluasi terminal otomatis
+    evaluasi_terminal_indobert(df, embeddings_dokumen, tokenizer, model, device)
 
     jalankan_ui(df, kolom_asli, embeddings_dokumen, tokenizer, model, device)
 
