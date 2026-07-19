@@ -136,7 +136,7 @@ def cari_dokumen(query: str, vektor_dokumen: list, kamus_idf: dict,
     return [(idx, skor) for idx, skor in skor_semua[:top_k] if skor > 0]
 
 
-# ANTARMUKA TKINTER
+# UI UTAMA
 
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -325,7 +325,6 @@ def main():
 
     daftar_token, kamus_idf, vektor_dokumen = bangun_indeks(df)
 
-    # Jalankan evaluasi terminal otomatis
     evaluasi_terminal_tfidf(df, vektor_dokumen, kamus_idf)
 
     jalankan_ui(df, daftar_token, kamus_idf, vektor_dokumen)

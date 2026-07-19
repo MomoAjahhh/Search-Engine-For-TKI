@@ -28,7 +28,6 @@ LABEL_SUMBER = {
 def muat_dataset(filepath: str):
     df_raw = pd.read_excel(filepath)
 
-    # Deteksi kolom teks asli/bersih untuk IndoBERT
     kandidat_asli = ['cleaned', 'sentence', 'text', 'content']
     kolom_asli = next((c for c in kandidat_asli if c in df_raw.columns), None)
 
@@ -50,28 +49,16 @@ def muat_dataset(filepath: str):
 #INDOBERT SEMANTIC SEARCH
 
 def mean_pooling(model_output, attention_mask: torch.Tensor) -> torch.Tensor:
-    """
-    Mean Pooling Manual — merata-ratakan token embeddings dari last_hidden_state
-    dengan memanfaatkan attention_mask sebagai bobot (token padding di-zeroing).
-
-    Langkah:
-      1. Ambil last_hidden_state  -> shape: (batch, seq_len, 768)
-      2. Expand attention_mask    -> shape: (batch, seq_len, 768)
-      3. Zeroing token padding    -> hanya token aktif yang dihitung
-      4. Sum / total token aktif  -> vektor kalimat berdimensi 768
-    """
-    token_embeddings = model_output.last_hidden_state                              # (B, L, 768)
+    
+    token_embeddings = model_output.last_hidden_state                              
     mask_expanded    = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
-    sum_embeddings   = torch.sum(token_embeddings * mask_expanded, dim=1)          # (B, 768)
-    sum_mask         = torch.clamp(mask_expanded.sum(dim=1), min=1e-9)             # (B, 768)
-    return sum_embeddings / sum_mask                                               # (B, 768)
+    sum_embeddings   = torch.sum(token_embeddings * mask_expanded, dim=1)          
+    sum_mask         = torch.clamp(mask_expanded.sum(dim=1), min=1e-9)             
+    return sum_embeddings / sum_mask                                               
 
 
 def ekstrak_embeddings(teks_list: list, tokenizer, model, device) -> np.ndarray:
-    """
-    Mengekstrak sentence embeddings (dim=768) untuk seluruh dokumen secara batch.
-    Returns: numpy array shape (N, 768)
-    """
+    
     semua_emb = []
 
     for i in range(0, len(teks_list), BATCH_SIZE):
@@ -97,11 +84,7 @@ def ekstrak_embeddings(teks_list: list, tokenizer, model, device) -> np.ndarray:
 
 def cari_indobert(query: str, embeddings_dok: np.ndarray,
                   tokenizer, model, device, top_k: int) -> list:
-    """
-    Pencarian semantik: encode query -> mean pooling -> cosine similarity
-    terhadap matriks embedding dokumen (N x 768).
-    Returns: list of (indeks_dokumen, skor_cosine)
-    """
+
     encoded_q = tokenizer(
         [query],
         padding=True,
@@ -115,13 +98,13 @@ def cari_indobert(query: str, embeddings_dok: np.ndarray,
         output_q = model(**encoded_q)
 
     emb_query   = mean_pooling(output_q, encoded_q['attention_mask']).cpu().numpy()
-    skor_matrix = sk_cosine(emb_query, embeddings_dok)[0]                  # (N,)
+    skor_matrix = sk_cosine(emb_query, embeddings_dok)[0]                  
 
     indeks_sorted = np.argsort(skor_matrix)[::-1][:top_k]
     return [(int(idx), float(skor_matrix[idx])) for idx in indeks_sorted]
 
 
-# ANTARMUKA TKINTER
+# UI UTAMA
 
 def jalankan_ui(df, kolom_asli, embeddings_dokumen, tokenizer, model, device):
 
@@ -145,7 +128,6 @@ def jalankan_ui(df, kolom_asli, embeddings_dokumen, tokenizer, model, device):
     root.resizable(True, True)
     root.minsize(800, 460)
 
-    # Header
     frm_header = tk.Frame(root, bg=MERAH, padx=20, pady=12)
     frm_header.pack(fill="x")
 
@@ -157,7 +139,6 @@ def jalankan_ui(df, kolom_asli, embeddings_dokumen, tokenizer, model, device):
              text=f"  |  {len(df)} dokumen  |  dim=768",
              font=("Segoe UI", 10), bg=MERAH, fg="#FFFFFF").pack(side="left", pady=2)
 
-    # Baris Input
     frm_input = tk.Frame(root, bg=BG, padx=20, pady=12)
     frm_input.pack(fill="x")
 
@@ -189,7 +170,6 @@ def jalankan_ui(df, kolom_asli, embeddings_dokumen, tokenizer, model, device):
 
     frm_input.columnconfigure(1, weight=1)
 
-    # Style Treeview
     style = ttk.Style()
     style.theme_use("clam")
     style.configure("Treeview",
@@ -201,7 +181,6 @@ def jalankan_ui(df, kolom_asli, embeddings_dokumen, tokenizer, model, device):
                     font=FONT_LABEL)
     style.map("Treeview", background=[("selected", "#9E3732")])
 
-    # Panel Hasil
     frm_panel = tk.Frame(root, bg=PANEL)
     frm_panel.pack(fill="both", expand=True, padx=20, pady=(0, 20))
 
@@ -229,7 +208,6 @@ def jalankan_ui(df, kolom_asli, embeddings_dokumen, tokenizer, model, device):
     tree_hasil.tag_configure("ganjil", background="#EFF6FF")
     tree_hasil.tag_configure("genap",  background=PANEL)
 
-    # Fungsi Pencarian
     def lakukan_pencarian(event=None):
         query = var_query.get().strip()
         if not query:
@@ -332,7 +310,6 @@ def main():
     embeddings_dokumen = ekstrak_embeddings(teks_list, tokenizer, model, device)
     print(f"      Selesai {embeddings_dokumen.shape}")
 
-    # Jalankan evaluasi terminal otomatis
     evaluasi_terminal_indobert(df, embeddings_dokumen, tokenizer, model, device)
 
     jalankan_ui(df, kolom_asli, embeddings_dokumen, tokenizer, model, device)
